@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AlphaVault | Private Performance System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+        
+        :root { --bg: #f8fafc; --card: #ffffff; --text: #0f172a; --border: #e2e8f0; --muted: #64748b; }
+        .dark { --bg: #020617; --card: #0f172a; --text: #f1f5f9; --border: #1e293b; --muted: #94a3b8; }
+
+        body { background-color: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; transition: background 0.3s ease; }
+        .stat-card { background: var(--card); border: 1px solid var(--border); }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+        
+        .day-cell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; border-radius: 6px; cursor: pointer; font-size: 0.7rem; font-weight: 700; }
+        
+        /* Restraint UI */
+        .res-success { background-color: #059669; color: white; }
+        .res-fail { background-color: #dc2626; color: white; text-decoration: line-through; }
+        
+        /* Gym UI */
+        .gym-success { background-color: #2563eb; color: white; }
+        .gym-rest { background-color: var(--border); color: var(--muted); }
+
+        .today-mark { outline: 2px solid #fbbf24; outline-offset: 1px; }
+        
+        .warning-pulse { border: 2px solid #ef4444 !important; animation: pulse-red 2s infinite; }
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+            70% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body class="dark">
+
+    <div id="authScreen" class="min-h-screen flex flex-col items-center justify-center p-6">
+        <div class="absolute top-6 right-6">
+            <button onclick="toggleDarkMode()" class="p-3 rounded-full bg-slate-200 dark:bg-slate-800 text-xl shadow-lg">🌓</button>
+        </div>
+        <div class="stat-card p-10 rounded-[2.5rem] w-full max-w-md space-y-8 shadow-2xl">
+            <div class="text-center">
+                <h1 class="text-4xl font-black italic tracking-tighter uppercase text-blue-500">AlphaVault</h1>
+                <p class="text-[10px] text-slate-500 font-bold mt-3 tracking-[0.4em]">ADMIN ACCESS ONLY</p>
+            </div>
+            <div class="space-y-4">
+                <input type="text" id="username" placeholder="Username" class="w-full p-4 rounded-2xl bg-slate-100 dark:bg-slate-800 border-none outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+                <input type="password" id="password" placeholder="Password" class="w-full p-4 rounded-2xl bg-slate-100 dark:bg-slate-800 border-none outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+                <button onclick="handleLogin()" class="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black uppercase text-sm tracking-widest shadow-xl active:scale-95 transition-all">Authenticate</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="mainApp" class="hidden min-h-screen pb-20">
+        <header class="sticky top-0 z-50 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 px-6 py-4">
+            <div class="max-w-6xl mx-auto flex justify-between items-center">
+                <div class="flex items-center gap-4">
+                    <h1 class="text-xl font-black italic tracking-tighter text-blue-500 uppercase">Vault.OS</h1>
+                    <button onclick="toggleDarkMode()" class="text-lg p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">🌓</button>
+                </div>
+                <div class="flex gap-6 items-center">
+                    <div class="hidden sm:flex gap-4">
+                        <span class="text-[10px] font-black text-emerald-500" id="resStreak">0 Day Streak</span>
+                        <span class="text-[10px] font-black text-blue-500" id="gymStreak">0 Day Streak</span>
+                    </div>
+                    <button onclick="logout()" class="text-red-500 font-black text-[10px] uppercase hover:underline">Exit</button>
+                </div>
+            </div>
+        </header>
+
+        <main class="max-w-6xl mx-auto px-4 py-8 space-y-12">
+            
+            <section class="space-y-6">
+                <h2 class="text-[10px] font-black uppercase tracking-[0.4em] text-emerald-500 px-2">Restraint Protocol</h2>
+                <div class="grid lg:grid-cols-12 gap-6">
+                    <div class="lg:col-span-8 stat-card p-6 rounded-[2rem]">
+                        <div id="resCalendar" class="calendar-grid"></div>
+                    </div>
+                    <div class="lg:col-span-4 grid grid-cols-1 gap-3">
+                        <div id="resWBox" class="stat-card p-4 rounded-2xl flex justify-between items-center">
+                            <span class="text-[10px] font-bold text-slate-500 uppercase">Weekly</span>
+                            <span id="resWPct" class="text-xl font-black">0%</span>
+                        </div>
+                        <div id="resMBox" class="stat-card p-4 rounded-2xl flex justify-between items-center">
+                            <span class="text-[10px] font-bold text-slate-500 uppercase">Monthly</span>
+                            <span id="resMPct" class="text-xl font-black">0%</span>
+                        </div>
+                        <div id="resYBox" class="stat-card p-4 rounded-2xl flex justify-between items-center">
+                            <span class="text-[10px] font-bold text-slate-500 uppercase">Yearly</span>
+                            <span id="resYPct" class="text-xl font-black">0%</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="space-y-6">
+                <h2 class="text-[10px] font-black uppercase tracking-[0.4em] text-blue-500 px-2">Gym Consistency</h2>
+                <div class="grid lg:grid-cols-12 gap-6">
+                    <div class="lg:col-span-8 stat-card p-6 rounded-[2rem]">
+                        <div id="gymCalendar" class="calendar-grid"></div>
+                    </div>
+                    <div class="lg:col-span-4 grid grid-cols-1 gap-3">
+                        <div id="gymWBox" class="stat-card p-4 rounded-2xl flex justify-between items-center">
+                            <span class="text-[10px] font-bold text-slate-500 uppercase">Weekly</span>
+                            <span id="gymWPct" class="text-xl font-black">0%</span>
+                        </div>
+                        <div id="gymMBox" class="stat-card p-4 rounded-2xl flex justify-between items-center">
+                            <span class="text-[10px] font-bold text-slate-500 uppercase">Monthly</span>
+                            <span id="gymMPct" class="text-xl font-black">0%</span>
+                        </div>
+                        <div id="gymYBox" class="stat-card p-4 rounded-2xl flex justify-between items-center">
+                            <span class="text-[10px] font-bold text-slate-500 uppercase">Yearly</span>
+                            <span id="gymYPct" class="text-xl font-black">0%</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        const ADMIN_USER = "admin"; 
+        const ADMIN_PASS = "1234";
+
+        let userData = JSON.parse(localStorage.getItem('alpha_vault_data')) || { failures: [], gymDays: [] };
+
+        function handleLogin() {
+            const u = document.getElementById('username').value.trim();
+            const p = document.getElementById('password').value;
+            if (u === ADMIN_USER && p === ADMIN_PASS) {
+                sessionStorage.setItem('isLogged', 'true');
+                showApp();
+            } else { alert("Invalid Credentials"); }
+        }
+
+        function showApp() {
+            document.getElementById('authScreen').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+            init();
+        }
+
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark');
+            localStorage.setItem('theme', document.body.classList.contains('dark') ? 'dark' : 'light');
+        }
+
+        if(localStorage.getItem('theme') === 'light') document.body.classList.remove('dark');
+
+        function saveData() {
+            localStorage.setItem('alpha_vault_data', JSON.stringify(userData));
+            init();
+        }
+
+        function calculateStats() {
+            const now = new Date();
+            const todayStr = now.toISOString().split('T')[0];
+
+            const getPct = (list, daysBack, isInverse) => {
+                let count = 0;
+                for(let i=0; i<daysBack; i++) {
+                    let d = new Date(); d.setDate(d.getDate()-i);
+                    let s = d.toISOString().split('T')[0];
+                    let hit = list.includes(s);
+                    if(isInverse ? !hit : hit) count++;
+                }
+                return Math.round((count/daysBack)*100) || 0;
+            };
+
+            const getStreak = (list, isInverse) => {
+                let streak = 0; let d = new Date();
+                while (true) {
+                    let s = d.toISOString().split('T')[0];
+                    if (isInverse ? list.includes(s) : !list.includes(s)) break;
+                    streak++; d.setDate(d.getDate() - 1);
+                    if(streak > 365) break;
+                }
+                return streak;
+            };
+
+            const dayOfYear = Math.floor((now - new Date(now.getFullYear(), 0, 1)) / 86400000) + 1;
+
+            // Restraint Stats
+            const rW = getPct(userData.failures, 7, true);
+            const rM = getPct(userData.failures, now.getDate(), true);
+            const rY = getPct(userData.failures, dayOfYear, true);
+            updateUI('resWPct', 'resWBox', rW);
+            updateUI('resMPct', 'resMBox', rM);
+            updateUI('resYPct', 'resYBox', rY);
+            document.getElementById('resStreak').innerText = (userData.failures.includes(todayStr) ? 0 : getStreak(userData.failures, true)) + " DAY STREAK";
+
+            // Gym Stats
+            const gW = getPct(userData.gymDays, 7, false);
+            const gM = getPct(userData.gymDays, now.getDate(), false);
+            const gY = getPct(userData.gymDays, dayOfYear, false);
+            updateUI('gymWPct', 'gymWBox', gW);
+            updateUI('gymMPct', 'gymMBox', gM);
+            updateUI('gymYPct', 'gymYBox', gY);
+            document.getElementById('gymStreak').innerText = getStreak(userData.gymDays, false) + " DAY STREAK";
+        }
+
+        function updateUI(textId, boxId, pct) {
+            document.getElementById(textId).innerText = pct + "%";
+            document.getElementById(boxId).classList.toggle('warning-pulse', pct < 95);
+        }
+
+        function renderCalendar(id, list, toggleFn, type) {
+            const container = document.getElementById(id);
+            const now = new Date();
+            const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+            const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).getDay();
+            const todayStr = now.toISOString().split('T')[0];
+
+            container.innerHTML = '';
+            for (let i = 0; i < firstDay; i++) container.appendChild(document.createElement('div'));
+            for (let d = 1; d <= daysInMonth; d++) {
+                const cell = document.createElement('div');
+                const dateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                cell.innerText = d;
+                cell.className = `day-cell ${dateStr === todayStr ? 'today-mark ring-2 ring-yellow-500' : ''} `;
+                if(type === 'res') cell.classList.add(list.includes(dateStr) ? 'res-fail' : 'res-success');
+                else cell.classList.add(list.includes(dateStr) ? 'gym-success' : 'gym-rest');
+                if(new Date(dateStr) <= now) {
+                    cell.onclick = () => {
+                        const idx = list.indexOf(dateStr);
+                        idx === -1 ? list.push(dateStr) : list.splice(idx, 1);
+                        saveData();
+                    };
+                } else cell.style.opacity = "0.1";
+                container.appendChild(cell);
+            }
+        }
+
+        function logout() { sessionStorage.clear(); location.reload(); }
+        function init() { 
+            renderCalendar('resCalendar', userData.failures, null, 'res'); 
+            renderCalendar('gymCalendar', userData.gymDays, null, 'gym'); 
+            calculateStats(); 
+        }
+        
+        if(sessionStorage.getItem('isLogged') === 'true') showApp();
+    </script>
+</body>
+</html>
